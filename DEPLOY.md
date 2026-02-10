@@ -11,32 +11,25 @@ To share this app with your team, the easiest way is to deploy it on **Vercel** 
 
 ### 1. Push to GitHub
 
-1. Initialize git if you haven't:
+I have already **initialized Git** and **committed your code** for you. You just need to create the home for it:
+
+1. Go to [github.com/new](https://github.com/new) and create a repository named `clevrcomm-transcriber`.
+2. Copy the two lines they show under "**...or push an existing repository from the command line**". They look like this:
 
     ```bash
-    git init
-    git add .
-    git commit -m "Initial commit"
-    ```
-
-2. Create a new repository on GitHub.
-3. Push your code:
-
-    ```bash
-    git remote add origin <your-repo-url>
+    git remote add origin https://github.com/yourname/clevrcomm-transcriber.git
     git push -u origin main
     ```
 
-### 2. Import into Vercel
+3. Paste those into your terminal.
 
-1. Go to your Vercel Dashboard and click **"Add New..." -> "Project"**.
-2. Select your GitHub repository.
-3. **Configure Project**:
-    - **Framework Preset**: Vite (should detect auto)
-    - **Root Directory**: `./`
-    - **Environment Variables** (CRITICAL):
-        - Name: `VITE_GEMINI_API_KEY`
-        - Value: `your_actual_gemini_api_key_here`
+### 2. Connect to Vercel
+
+1. Go to [vercel.com/new](https://vercel.com/new).
+2. Click **Import** next to your new GitHub repository.
+3. **Environment Variables** (IMPORTANT):
+    - `VITE_GEMINI_API_KEY`: [Your Key]
+    - `VITE_APP_PASSWORD`: `clevr2026` (or your choice)
 4. Click **Deploy**.
 
 ### 3. Verification

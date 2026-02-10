@@ -21,21 +21,23 @@ registerProcessor('audio-processor', AudioProcessor);
 
 export function useAudioRecorder({ onAudioData }) {
     const [isRecording, setIsRecording] = useState(false);
-    const audioContextRef = useRef(null);
+    const [stream, setStream] = useState(null);
     const streamRef = useRef(null);
+    const audioContextRef = useRef(null);
     const workletNodeRef = useRef(null);
 
     const startRecording = useCallback(async () => {
         try {
             if (isRecording) return;
 
-            const stream = await navigator.mediaDevices.getUserMedia({
+            const audioStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
                     sampleRate: 16000,
                 }
             });
-            streamRef.current = stream;
+            streamRef.current = audioStream;
+            setStream(audioStream);
 
             const audioContext = new AudioContext({ sampleRate: 16000 });
             audioContextRef.current = audioContext;
@@ -45,7 +47,7 @@ export function useAudioRecorder({ onAudioData }) {
             const workletUrl = URL.createObjectURL(blob);
             await audioContext.audioWorklet.addModule(workletUrl);
 
-            const source = audioContext.createMediaStreamSource(stream);
+            const source = audioContext.createMediaStreamSource(audioStream);
             const workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
 
             workletNode.port.onmessage = (event) => {
@@ -81,7 +83,8 @@ export function useAudioRecorder({ onAudioData }) {
         }
 
         setIsRecording(false);
+        setStream(null);
     }, [isRecording]);
 
-    return { isRecording, startRecording, stopRecording };
+    return { isRecording, startRecording, stopRecording, stream };
 }

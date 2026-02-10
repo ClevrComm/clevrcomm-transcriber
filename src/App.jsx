@@ -8,22 +8,42 @@ import HistoryModal from './components/HistoryModal';
 import ThemeToggle from './components/ThemeToggle';
 import PasswordGate from './components/PasswordGate';
 import { saveSession } from './services/storage';
-import { Mic, FileAudio, ExternalLink, Activity, Settings, History } from 'lucide-react';
+import { PERSONAS } from './utils/personas';
+import { Mic, FileAudio, ExternalLink, Activity, Settings, History, UserCircle } from 'lucide-react';
 
 function App() {
   const [transcript, setTranscript] = useState("");
   const [analysisData, setAnalysisData] = useState(null);
-  const [keywords, setKeywords] = useState(["solution", "price", "urgent"]); // Demo keywords
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [keywords, setKeywords] = useState([
+    "solution", "price", "urgent",
+    "Vivianite", "Solution provider", "Federal", "Autopay", "Paperless",
+    "Visa", "Mastercard", "Credit card", "Quote", "Secure method",
+    "Upgrade", "Accessory", "Accessories", "Wifi", "Add", "Add-a-line",
+    "Household", "Watch", "Tablet", "Internet", "Fiber"
+  ]);
   const [scorecards, setScorecards] = useState([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState(PERSONAS.general.id);
 
   const handleTranscriptUpdate = (newText) => {
     setTranscript(prev => prev + newText);
   };
 
   const handleAnalysisComplete = async (data) => {
-    setAnalysisData(data);
+    // Extract audio URL if present
+    const { audioUrl: newAudioUrl, ...analysisResult } = data;
+
+    setAnalysisData(analysisResult);
+    if (newAudioUrl) {
+      // Clean up old blob URL if it exists
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      setAudioUrl(newAudioUrl);
+    }
+
     if (data.transcript) {
       setTranscript(data.transcript);
     }
@@ -86,6 +106,21 @@ function App() {
               <div className="text-sm text-gray-500 hidden sm:block mr-2">
                 Powered by Gemini Live
               </div>
+
+              {/* Persona Selector */}
+              <div className="relative group hidden md:block mr-2">
+                <select
+                  value={selectedPersona}
+                  onChange={(e) => setSelectedPersona(e.target.value)}
+                  className="appearance-none bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-medium py-1.5 pl-3 pr-8 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                >
+                  {Object.values(PERSONAS).map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <UserCircle className="w-3 h-3 text-indigo-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
               <ThemeToggle />
               <button
                 onClick={() => setIsHistoryOpen(true)}
@@ -110,7 +145,10 @@ function App() {
 
             {/* Left Column: Controls */}
             <div className="lg:col-span-1 space-y-6">
-              <AudioRecorder onTranscriptUpdate={handleTranscriptUpdate} />
+              <AudioRecorder
+                onTranscriptUpdate={handleTranscriptUpdate}
+                persona={PERSONAS[selectedPersona]}
+              />
               <FileUpload
                 onAnalysisComplete={handleAnalysisComplete}
                 context={{ keywords, scorecard: scorecards.length > 0 ? scorecards[0] : null }}
@@ -120,7 +158,7 @@ function App() {
             {/* Right Column: Transcript & Analysis */}
             <div className="lg:col-span-2 space-y-6">
               {analysisData ? (
-                <AnalysisPanel data={analysisData} />
+                <AnalysisPanel data={analysisData} audioUrl={audioUrl} />
               ) : (
                 <TranscriptView text={transcript} keywords={keywords} />
               )}

@@ -10,8 +10,9 @@ export class GeminiLiveService {
         this.onMessage = null;
     }
 
-    connect(onMessage) {
+    connect(onMessage, systemInstruction = null) {
         this.onMessage = onMessage;
+        this.systemInstruction = systemInstruction;
         const url = `${URI}?key=${this.apiKey}`;
         this.ws = new WebSocket(url);
 
@@ -22,12 +23,29 @@ export class GeminiLiveService {
 
         this.ws.onmessage = async (event) => {
             if (event.data instanceof Blob) {
-                // Handle binary data if needed (audio response)
                 console.log("Received blob message");
             } else {
                 try {
                     const data = JSON.parse(event.data);
-                    this.onMessage(data);
+
+                    // Handle all types of responses for immediate streaming
+                    // Check for serverContent (final or partial)
+                    if (data.serverContent?.modelTurn?.parts) {
+                        this.onMessage(data);
+                    }
+                    // Check for tool calls or other response types
+                    else if (data.serverContent?.turnComplete !== undefined) {
+                        // Turn complete signal
+                        console.log("Turn complete");
+                    }
+                    // Setup acknowledgment
+                    else if (data.setupComplete) {
+                        console.log("Setup complete, ready for audio");
+                    }
+                    // Pass through any other data
+                    else {
+                        this.onMessage(data);
+                    }
                 } catch (e) {
                     console.error("Error parsing message", e);
                 }
@@ -49,9 +67,20 @@ export class GeminiLiveService {
                 model: "models/gemini-2.0-flash",
                 generation_config: {
                     response_modalities: ["TEXT"],
+                    // Enable streaming for immediate partial results
+                    temperature: 0.7,
+                    top_p: 0.95,
+                    top_k: 40,
                 }
             }
         };
+
+        if (this.systemInstruction) {
+            setupMessage.setup.system_instruction = {
+                parts: [{ text: this.systemInstruction }]
+            };
+        }
+
         this.send(setupMessage);
     }
 

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Download, User, Clock } from 'lucide-react';
+import { Search, Download, User, Clock, Play } from 'lucide-react';
 
-export default function TranscriptView({ text, keywords = [] }) {
+export default function TranscriptView({ text, keywords = [], onTimestampClick, audioUrl }) {
     const [searchTerm, setSearchTerm] = useState("");
 
     // Determine if text is a structured array or legacy string
@@ -94,9 +94,20 @@ export default function TranscriptView({ text, keywords = [] }) {
                                             <div className={`p-2 rounded-full mb-1 ${entry.speaker.includes('1') ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400' : 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400'}`}>
                                                 <User className="w-4 h-4" />
                                             </div>
-                                            <div className="text-[10px] font-mono text-gray-400 flex items-center gap-0.5">
-                                                {entry.time}
-                                            </div>
+                                            {entry.time && audioUrl ? (
+                                                <button
+                                                    onClick={() => onTimestampClick?.(entry.time)}
+                                                    className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-0.5 cursor-pointer hover:underline transition-colors group/time"
+                                                    title="Click to play from this point"
+                                                >
+                                                    <Play className="w-2.5 h-2.5 opacity-0 group-hover/time:opacity-100 transition-opacity" fill="currentColor" />
+                                                    {entry.time}
+                                                </button>
+                                            ) : (
+                                                <div className="text-[10px] font-mono text-gray-400 flex items-center gap-0.5">
+                                                    {entry.time}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex-1">
                                             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">

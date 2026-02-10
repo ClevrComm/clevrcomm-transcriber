@@ -63,7 +63,12 @@ export default function FileUpload({ onAnalysisComplete, context }) {
         try {
             const base64Data = await fileToBase64(file);
             const result = await analyzeAudioFile(base64Data, file.type, API_KEY, context);
-            onAnalysisComplete(result);
+
+            // Create blob URL for audio playback
+            const audioUrl = URL.createObjectURL(file);
+
+            // Pass both analysis result and audio URL
+            onAnalysisComplete({ ...result, audioUrl });
         } catch (error) {
             console.error("Analysis failed", error);
             alert(`Analysis failed: ${error.message || JSON.stringify(error)}`);
