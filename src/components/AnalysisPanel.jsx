@@ -43,7 +43,7 @@ const renderScorecard = (scorecardData) => {
 
 
 export default function AnalysisPanel({ data, audioUrl }) {
-    const [activeTab, setActiveTab] = useState('summary');
+    const [activeTab, setActiveTab] = useState('transcript');
     const [seekTime, setSeekTime] = useState(null);
 
     // Handle timestamp click - convert MM:SS to seconds
@@ -120,23 +120,6 @@ export default function AnalysisPanel({ data, audioUrl }) {
                                     </div>
                                 </div>
                             </div>
-
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                                    <Tag className="w-5 h-5 text-indigo-500" />
-                                    Keywords Detected
-                                </h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {data.keywords?.map((keyword, i) => (
-                                        <span
-                                            key={i}
-                                            className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm font-medium border border-indigo-100 dark:border-indigo-800"
-                                        >
-                                            {keyword}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -160,6 +143,8 @@ export default function AnalysisPanel({ data, audioUrl }) {
                             text={typeof data.transcript === 'string' ? [{ speaker: 'System', text: data.transcript, time: '' }] : data.transcript}
                             onTimestampClick={handleTimestampClick}
                             audioUrl={audioUrl}
+                            keywords={data.keywords || []}
+                            transcript={typeof data.transcript === 'string' ? data.transcript : data.transcript.map(t => `${t.time} [${t.speaker}]: ${t.text}`).join('\n')}
                         />
                     </div>
                 )}

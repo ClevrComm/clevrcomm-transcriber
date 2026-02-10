@@ -60,18 +60,44 @@ export default function FileUpload({ onAnalysisComplete, context }) {
         setFileName(file.name || "Audio File");
         setIsUploading(true);
 
+        // Show initial loading state by passing empty/partial data
+        const audioUrl = URL.createObjectURL(file);
+
+        // Initial state for analysis panel (loading)
+        onAnalysisComplete({
+            transcript: "Initializing analysis...",
+            summary: "Processing...",
+            keywords: [],
+            sentiment: "Analyzing...",
+            scorecard: [],
+            audioUrl
+        });
+
         try {
             const base64Data = await fileToBase64(file);
-            const result = await analyzeAudioFile(base64Data, file.type, API_KEY, context);
 
-            // Create blob URL for audio playback
-            const audioUrl = URL.createObjectURL(file);
+            // Streaming callback
+            const handleProgress = (partialText) => {
+                // Update transcript with raw text as it streams
+                onAnalysisComplete({
+                    transcript: partialText,
+                    summary: "Generating transcript...",
+                    keywords: [],
+                    sentiment: "Analyzing...",
+                    scorecard: [],
+                    audioUrl // Keep audio URL available
+                });
+            };
 
-            // Pass both analysis result and audio URL
+            const result = await analyzeAudioFile(base64Data, file.type, API_KEY, context, handleProgress);
+
+            // Pass final structured result
             onAnalysisComplete({ ...result, audioUrl });
         } catch (error) {
             console.error("Analysis failed", error);
             alert(`Analysis failed: ${error.message || JSON.stringify(error)}`);
+            // Reset to prevent getting stuck in loading state if it fails early
+            setIsUploading(false);
         } finally {
             setIsUploading(false);
         }

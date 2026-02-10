@@ -116,7 +116,7 @@ export class GeminiLiveService {
 
 // ... (skipping lines)
 
-export async function analyzeAudioFile(base64Data, mimeType, apiKey, context = {}) {
+export async function analyzeAudioFile(base64Data, mimeType, apiKey, context = {}, onProgress = null) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
 
@@ -134,22 +134,37 @@ export async function analyzeAudioFile(base64Data, mimeType, apiKey, context = {
 
     prompt += "\nReturn the response as a JSON object with keys: 'transcript' (LIST of objects: { speaker: 'Speaker 1' | 'Speaker 2', time: 'MM:SS', text: string }), 'summary', 'keywords' (list of strings), 'sentiment', 'scorecard' (list of objects: { criteria, score, reasoning }). Do not use markdown code blocks.";
 
-    const result = await model.generateContent([
-        prompt,
-        {
-            inlineData: {
-                mimeType: mimeType,
-                data: base64Data
+    try {
+        const result = await model.generateContentStream([
+            prompt,
+            {
+                inlineData: {
+                    mimeType: mimeType,
+                    data: base64Data
+                }
+            }
+        ]);
+
+        let fullText = '';
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            fullText += chunkText;
+            if (onProgress) {
+                onProgress(fullText);
             }
         }
-    ]);
 
-    try {
-        const text = result.response.text();
-        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanText = fullText.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleanText);
     } catch (e) {
-        console.error("Failed to parse JSON", e);
-        return { transcript: result.response.text(), summary: "Failed to parse analysis.", keywords: [] };
+        console.error("Analysis failed", e);
+        // If JSON parse fails, return what we have as plain text transcript
+        // forcing a fallback structure so the UI doesn't crash
+        return {
+            transcript: [{ speaker: 'System', time: '00:00', text: "Raw Output: " + (fullText || e.message) }],
+            summary: "Failed to parse structured analysis. See transcript for raw output.",
+            keywords: [],
+            sentiment: "Unknown"
+        };
     }
 }

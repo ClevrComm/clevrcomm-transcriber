@@ -10,6 +10,7 @@ import PasswordGate from './components/PasswordGate';
 import { saveSession } from './services/storage';
 import { PERSONAS } from './utils/personas';
 import { Mic, FileAudio, ExternalLink, Activity, Settings, History, UserCircle } from 'lucide-react';
+import ClevrCommLogo from './components/ClevrCommLogo';
 
 function App() {
   const [transcript, setTranscript] = useState("");
@@ -94,16 +95,18 @@ function App() {
         />
 
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="w-6 h-6 text-blue-600" />
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                ClevrComm Transcriber
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div className="flex items-center">
+              <ClevrCommLogo className="h-10" />
+              {/* Optional delimiter or app name */}
+              <div className="hidden sm:block mx-4 h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
+              <h1 className="hidden sm:block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Transcriber
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <div className="text-sm text-gray-500 hidden sm:block mr-2">
+              <div className="text-xs font-medium px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md hidden sm:block mr-2 border border-blue-100 dark:border-blue-900/50">
                 Powered by Gemini Live
               </div>
 
