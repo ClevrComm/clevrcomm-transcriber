@@ -17,7 +17,12 @@ async function verify() {
     console.log("1. Fetching user audio...");
 
     try {
-        const response = await fetch(AUDIO_URL);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const response = await fetch(AUDIO_URL, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
         const base64Audio = Buffer.from(arrayBuffer).toString('base64');

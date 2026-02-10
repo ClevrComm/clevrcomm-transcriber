@@ -1,80 +1,75 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Search, Download, User, Clock, Play, MessageCircle, X } from 'lucide-react';
+import { Search, Download, User, Clock, Play, MessageCircle, X, Loader } from 'lucide-react';
 import TranscriptChat from './TranscriptChat';
 
-export default function TranscriptView({ text, keywords = [], onTimestampClick, audioUrl, transcript }) {
+export default function TranscriptView({
+    text,
+    keywords = [],
+    onTimestampClick,
+    audioUrl,
+    transcript,
+    isStreaming = false,
+    showKeywords = true,
+    textSize = 'text-sm',
+    setTextSize,
+}) {
     const [searchTerm, setSearchTerm] = useState("");
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [keywordOccurrences, setKeywordOccurrences] = useState({});
     const [currentOccurrenceIndex, setCurrentOccurrenceIndex] = useState({});
     const transcriptRefs = useRef({});
+    const streamEndRef = useRef(null);
 
-    // Parse potentially streaming JSON data
-    const processedText = useMemo(() => {
-        if (Array.isArray(text)) return text;
-        if (typeof text !== 'string') return text || "";
+    // Determine the display mode:
+    // - During streaming (Pass 1): text is a plain string, show as-is
+    // - After analysis (Pass 2): text is a structured array from AnalysisPanel
+    const isStructured = Array.isArray(text);
+    const displayText = isStructured ? text : (text || "");
 
-        // Attempt to extract JSON objects from strict or loose format
-        // Matches { "speaker": ... } patterns even if stuck together
-        const jsonPattern = /\{"speaker":\s*".*?"(?:,\s*"time":\s*".*?")?(?:,\s*"text":\s*".*?")?\}/g;
-        const matches = text.match(jsonPattern);
-
-        if (matches && matches.length > 0) {
-            try {
-                // Parse each match and filter out failures
-                const parsed = matches
-                    .map(m => {
-                        try { return JSON.parse(m); } catch { return null; }
-                    })
-                    .filter(Boolean);
-
-                if (parsed.length > 0) return parsed;
-            } catch (e) {
-                console.warn("Failed to parse realtime JSON", e);
-            }
-        }
-
-        return text;
-    }, [text]);
-
-    // Determine if text is a structured array or legacy string
-    const isStructured = Array.isArray(processedText);
-
-    // Detect keywords in transcript
-    const detectedKeywords = useMemo(() => {
-        if (!processedText || !keywords || keywords.length === 0) return [];
-
-        const fullText = isStructured
-            ? processedText.map(t => t.text).join(' ').toLowerCase()
-            : (processedText || '').toLowerCase();
-
-        return keywords.filter(keyword =>
-            fullText.includes(keyword.toLowerCase())
-        );
-    }, [processedText, keywords, isStructured]);
-
-    // Build keyword occurrence map
+    // Auto-scroll during streaming
     useEffect(() => {
-        if (!processedText || !isStructured) return;
+        if (isStreaming && streamEndRef.current) {
+            streamEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [displayText, isStreaming]);
+
+
+
+    // Build keyword occurrence map for highlighting only (internal usage)
+    useEffect(() => {
+        if (!displayText) return;
 
         const occurrences = {};
-        detectedKeywords.forEach(keyword => {
-            occurrences[keyword] = [];
-            processedText.forEach((entry, index) => {
-                if (entry.text && entry.text.toLowerCase().includes(keyword.toLowerCase())) {
-                    occurrences[keyword].push(index);
-                }
-            });
-        });
-        setKeywordOccurrences(occurrences);
-
-        // Initialize current index for each keyword
         const initialIndices = {};
-        detectedKeywords.forEach(keyword => {
+
+        // Use all passed keywords
+        keywords.forEach(keyword => {
+            occurrences[keyword] = [];
             initialIndices[keyword] = 0;
+
+            if (isStructured) {
+                displayText.forEach((entry, index) => {
+                    if (entry.text && entry.text.toLowerCase().includes(keyword.toLowerCase())) {
+                        occurrences[keyword].push(index);
+                    }
+                });
+            } else {
+                // Plain text: count all non-overlapping matches
+                const lower = (displayText || '').toLowerCase();
+                const kw = keyword.toLowerCase();
+                let pos = 0;
+                while ((pos = lower.indexOf(kw, pos)) !== -1) {
+                    occurrences[keyword].push(pos);
+                    pos += kw.length;
+                }
+            }
         });
+
+        setKeywordOccurrences(occurrences);
         setCurrentOccurrenceIndex(initialIndices);
-    }, [processedText, detectedKeywords, isStructured]);
+    }, [displayText, keywords, isStructured]);
+
+
 
     const handleKeywordClick = (keyword) => {
         const occurrences = keywordOccurrences[keyword];
@@ -83,37 +78,42 @@ export default function TranscriptView({ text, keywords = [], onTimestampClick, 
         const currentIdx = currentOccurrenceIndex[keyword] || 0;
         const transcriptIndex = occurrences[currentIdx];
 
-        // Scroll to the transcript entry
         const element = transcriptRefs.current[transcriptIndex];
         if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Highlight briefly
             element.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20');
             setTimeout(() => {
                 element.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20');
             }, 2000);
         }
 
-        // Move to next occurrence for next click
         setCurrentOccurrenceIndex(prev => ({
             ...prev,
             [keyword]: (currentIdx + 1) % occurrences.length
         }));
     };
 
-    const filteredTranscript = useMemo(() => {
-        if (!processedText) return [];
-        if (!isStructured) return [{ text: processedText, speaker: 'Speaker', time: '' }];
+    // Allow parent to trigger keyword click (for external sidebar)
+    // Expose via a callback pattern
+    useEffect(() => {
+        if (window.__transcriptKeywordClick) return;
+        window.__transcriptKeywordClick = handleKeywordClick;
+        return () => { delete window.__transcriptKeywordClick; };
+    });
 
-        return processedText.filter(entry =>
+    const filteredTranscript = useMemo(() => {
+        if (!displayText) return [];
+        if (!isStructured) return [{ text: displayText, speaker: 'Speaker', time: '' }];
+
+        return displayText.filter(entry =>
             (entry.text && entry.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (entry.speaker && entry.speaker.toLowerCase().includes(searchTerm.toLowerCase()))
         );
-    }, [processedText, searchTerm, isStructured]);
+    }, [displayText, searchTerm, isStructured]);
 
     const highlightText = (content) => {
         if (!content) return null;
-        if (!keywords || keywords.length === 0) return content;
+        if (isStreaming || !keywords || keywords.length === 0) return content;
 
         const regex = new RegExp(`(${keywords.join('|')})`, 'gi');
         const parts = content.split(regex);
@@ -132,9 +132,9 @@ export default function TranscriptView({ text, keywords = [], onTimestampClick, 
     const handleDownload = () => {
         let content = "";
         if (isStructured) {
-            content = processedText.map(t => `[${t.time}] ${t.speaker}: ${t.text}`).join('\n\n');
+            content = displayText.map(t => `[${t.time}] ${t.speaker}: ${t.text}`).join('\n\n');
         } else {
-            content = processedText;
+            content = displayText;
         }
 
         const blob = new Blob([content], { type: 'text/plain' });
@@ -149,137 +149,151 @@ export default function TranscriptView({ text, keywords = [], onTimestampClick, 
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-[600px] flex flex-col relative overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-[50vh] lg:h-[600px] flex flex-col relative overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50 shrink-0 gap-4">
-                <h2 className="font-semibold text-lg text-gray-800 dark:text-gray-200 shrink-0">Conversation Transcript</h2>
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50 shrink-0 gap-3">
+                <div className="flex items-center gap-2">
+                    <h2 className="font-semibold text-sm text-gray-800 dark:text-gray-200 shrink-0">Conversation Transcript</h2>
+                    {isStreaming && (
+                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                            <Loader className="w-3.5 h-3.5 animate-spin" />
+                            <span className="text-[10px] font-medium">Live</span>
+                        </div>
+                    )}
+                </div>
 
-                <div className="flex items-center gap-3 flex-1 justify-end">
-                    <div className="relative max-w-xs w-full">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                    </div>
+                <div className="flex items-center gap-2 flex-1 justify-end">
+                    {!isStreaming && (
+                        <div className="relative max-w-[160px] w-full mr-2">
+                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                    )}
+
+                    {/* Text Size Control */}
+                    {setTextSize && (
+                        <div className="flex items-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md overflow-hidden mr-2">
+                            <button
+                                onClick={() => setTextSize('text-xs')}
+                                className={`px-2 py-1 text-xs font-medium border-r border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${textSize === 'text-xs' ? 'bg-gray-100 dark:bg-gray-600 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}
+                                title="Small Text"
+                            >
+                                A
+                            </button>
+                            <button
+                                onClick={() => setTextSize('text-sm')}
+                                className={`px-2 py-1 text-sm font-medium border-r border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${textSize === 'text-sm' ? 'bg-gray-100 dark:bg-gray-600 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}
+                                title="Medium Text"
+                            >
+                                A
+                            </button>
+                            <button
+                                onClick={() => setTextSize('text-base')}
+                                className={`px-2 py-1 text-base font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${textSize === 'text-base' ? 'bg-gray-100 dark:bg-gray-600 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}
+                                title="Large Text"
+                            >
+                                A
+                            </button>
+                        </div>
+                    )}
 
                     <button
                         onClick={handleDownload}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        disabled={isStreaming || !displayText}
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                     >
-                        <Download className="w-4 h-4" />
+                        <Download className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Download</span>
                     </button>
                 </div>
             </div>
 
-            {/* Main Content Area - Split View */}
+            {/* Main Content Area */}
             <div className="flex flex-1 overflow-hidden">
 
-                {/* Left: Transcript - Flexible Width & Scrollable */}
-                <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-                    {!processedText ? (
-                        <div className="text-gray-400 italic text-center mt-10">Waiting for input...</div>
+                {/* Transcript - Full Width (keywords now external) */}
+                <div className="flex-1 overflow-y-auto p-4 scroll-smooth">
+                    {!displayText ? (
+                        <div className="text-gray-400 italic text-center mt-10 text-sm">Waiting for input...</div>
+                    ) : isStreaming ? (
+                        /* ── STREAMING MODE: Plain text typewriter ── */
+                        <div className="space-y-1 pb-20">
+                            <div className={`font-mono leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300 ${textSize}`}>
+                                {displayText}
+                                <span className="inline-block w-2 h-4 bg-blue-500 ml-0.5 animate-pulse rounded-sm" />
+                            </div>
+                            <div ref={streamEndRef} />
+                        </div>
                     ) : (
-                        <div className="space-y-6 pb-20">
+                        /* ── STRUCTURED MODE: Parsed transcript entries ── */
+                        <div className="space-y-4 pb-20">
                             {isStructured ? (
                                 filteredTranscript.length > 0 ? (
                                     filteredTranscript.map((entry, index) => (
                                         <div
                                             key={index}
                                             ref={el => transcriptRefs.current[index] = el}
-                                            className="flex gap-4 group transition-all duration-300 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                                            className="flex gap-3 group transition-all duration-300 rounded-lg p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                         >
-                                            <div className="flex flex-col items-center min-w-[60px] pt-1 shrink-0">
-                                                <div className={`p-2 rounded-full mb-1 ${entry.speaker.includes('1') ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400' : 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400'}`}>
-                                                    <User className="w-4 h-4" />
+                                            <div className="flex flex-col items-center min-w-[48px] pt-1 shrink-0">
+                                                <div className={`p-1.5 rounded-full mb-1 ${entry.speaker.includes('1') ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400' : 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400'}`}>
+                                                    <User className="w-3.5 h-3.5" />
                                                 </div>
                                                 {entry.time && audioUrl ? (
                                                     <button
                                                         onClick={() => onTimestampClick?.(entry.time)}
-                                                        className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-0.5 cursor-pointer hover:underline transition-colors group/time"
+                                                        className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-0.5 cursor-pointer hover:underline transition-colors group/time"
                                                         title="Click to play from this point"
                                                     >
-                                                        <Play className="w-2.5 h-2.5 opacity-0 group-hover/time:opacity-100 transition-opacity" fill="currentColor" />
+                                                        <Play className="w-2 h-2 opacity-0 group-hover/time:opacity-100 transition-opacity" fill="currentColor" />
                                                         {entry.time}
                                                     </button>
                                                 ) : (
-                                                    <div className="text-[10px] font-mono text-gray-400 flex items-center gap-0.5">
+                                                    <div className="text-[9px] font-mono text-gray-400 flex items-center gap-0.5">
                                                         {entry.time}
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                                                <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-0.5">
                                                     {entry.speaker}
                                                 </div>
-                                                <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-sm bg-white dark:bg-gray-800 p-3 rounded-lg rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
+                                                <div className={`text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-2.5 rounded-lg rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow ${textSize}`}>
                                                     {highlightText(entry.text)}
                                                 </div>
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="text-center text-gray-400 py-10">No matches found for "{searchTerm}"</div>
+                                    <div className="text-center text-gray-400 py-10 text-sm">No matches found for "{searchTerm}"</div>
                                 )
                             ) : (
-                                // Legacy / Plain Text View
-                                <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-                                    {highlightText(processedText)}
+                                // Legacy / Plain Text View (non-streaming)
+                                <div className={`font-mono leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300 ${textSize}`}>
+                                    {highlightText(displayText)}
                                 </div>
                             )}
                         </div>
                     )}
                 </div>
 
-                {/* Right: Detected Keywords Sidebar - Fixed Width & Scrollable */}
-                {detectedKeywords.length > 0 && (
-                    <div className="w-72 border-l border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 flex flex-col shrink-0">
-                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
-                            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                                <Search className="w-3 h-3" />
-                                Detected Keywords ({detectedKeywords.length})
-                            </h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {detectedKeywords.map((keyword, idx) => {
-                                const count = keywordOccurrences[keyword]?.length || 0;
-                                const currentIdx = currentOccurrenceIndex[keyword] || 0;
-                                return (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleKeywordClick(keyword)}
-                                        className="w-full group flex items-center justify-start gap-4 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition-all text-left"
-                                        title={`Jump to next occurrence of "${keyword}"`}
-                                    >
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate flex-1">
-                                            {keyword}
-                                        </span>
-                                        <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${count > 0
-                                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
-                                            : 'bg-gray-100 text-gray-500'
-                                            }`}>
-                                            {count > 1 ? `${currentIdx + 1}/${count}` : count}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+
             </div>
 
             {/* Floating Chat Button */}
             {transcript && (
                 <button
                     onClick={() => setIsChatOpen(!isChatOpen)}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-40"
+                    className="fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-40"
                     title="Ask AI about transcript"
                 >
-                    {isChatOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+                    {isChatOpen ? <X className="w-5 h-5" /> : <MessageCircle className="w-5 h-5" />}
                 </button>
             )}
 
@@ -292,3 +306,4 @@ export default function TranscriptView({ text, keywords = [], onTimestampClick, 
         </div>
     );
 }
+

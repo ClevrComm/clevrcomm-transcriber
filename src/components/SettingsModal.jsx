@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Save } from 'lucide-react';
+import { X, Plus, Trash2, Save, GripVertical } from 'lucide-react';
+import { Reorder } from 'framer-motion';
 
 export default function SettingsModal({ isOpen, onClose, keywords, setKeywords, scorecards, setScorecards }) {
     if (!isOpen) return null;
@@ -94,17 +95,20 @@ export default function SettingsModal({ isOpen, onClose, keywords, setKeywords, 
                                 </button>
                             </div>
 
-                            <div className="flex flex-wrap gap-2">
+                            <Reorder.Group axis="y" values={keywords} onReorder={setKeywords} className="space-y-2">
                                 {keywords.map(kw => (
-                                    <div key={kw} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full text-sm">
-                                        {kw}
-                                        <button onClick={() => removeKeyword(kw)} className="text-gray-400 hover:text-red-500">
-                                            <X className="w-3 h-3" />
+                                    <Reorder.Item key={kw} value={kw} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 cursor-grab active:cursor-grabbing group">
+                                        <div className="flex items-center gap-3">
+                                            <GripVertical className="w-4 h-4 text-gray-400" />
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{kw}</span>
+                                        </div>
+                                        <button onClick={() => removeKeyword(kw)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
-                                    </div>
+                                    </Reorder.Item>
                                 ))}
-                                {keywords.length === 0 && <p className="text-gray-400 text-sm">No keywords added yet.</p>}
-                            </div>
+                            </Reorder.Group>
+                            {keywords.length === 0 && <p className="text-gray-400 text-sm">No keywords added yet.</p>}
                         </div>
                     )}
 

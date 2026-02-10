@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Compact Layout Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'Segoe UI', sans-serif;
+            background: #f8f9fa;
+            color: #1a1a2e;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 16px;
+            display: grid;
+            grid-template-columns: 160px 1fr 180px;
+            gap: 16px;
+        }
+
+        /* ── LEFT COLUMN (compact) ── */
+        .left {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .card-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #6b7280;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-icon {
+            width: 20px;
+            height: 20px;
+            background: #eef2ff;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
+        .timer {
+            font-family: monospace;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            color: #374151;
+            margin: 4px 0;
+        }
+
+        .btn-blue {
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 16px;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .upload-zone {
+            border: 1.5px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 10px;
+        }
+
+        .upload-zone .icon {
+            font-size: 18px;
+            margin-bottom: 2px;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 10px;
+            margin-bottom: 6px;
+        }
+
+        .status-line {
+            font-size: 9px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .ready-bar {
+            width: 100%;
+            height: 2px;
+            background: #e5e7eb;
+            border-radius: 1px;
+            margin-bottom: 4px;
+        }
+
+        /* ── CENTER (transcript, max space) ── */
+        .center {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .center-header {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fafafa;
+        }
+
+        .center-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .center-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .search-box {
+            padding: 4px 8px 4px 26px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 11px;
+            width: 140px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 8px center;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 10px;
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .transcript-body {
+            padding: 12px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .turn {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .turn-meta {
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            margin: 0 auto 2px;
+        }
+
+        .avatar-1 {
+            background: #f3e8ff;
+            color: #9333ea;
+        }
+
+        .avatar-2 {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .timestamp {
+            font-size: 9px;
+            font-family: monospace;
+            color: #9ca3af;
+        }
+
+        .speaker-name {
+            font-size: 10px;
+            font-weight: 600;
+            color: #6b7280;
+            margin-bottom: 2px;
+        }
+
+        .bubble {
+            background: #fff;
+            border: 1px solid #f3f4f6;
+            padding: 8px 10px;
+            border-radius: 0 8px 8px 8px;
+            font-size: 12px;
+            color: #374151;
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .bubble mark {
+            background: #fef08a;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        /* ── RIGHT SIDEBAR (compact keywords) ── */
+        .right {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .right-header {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #fafafa;
+        }
+
+        .right-header h3 {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #6b7280;
+            letter-spacing: 0.5px;
+        }
+
+        .keywords-body {
+            padding: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-content: flex-start;
+        }
+
+        .kw-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            font-size: 10px;
+            color: #374151;
+            cursor: pointer;
+            background: #fff;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .kw-pill:hover {
+            border-color: #818cf8;
+            background: #eef2ff;
+        }
+
+        .kw-count {
+            font-size: 8px;
+            font-weight: 700;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 1px 4px;
+            border-radius: 8px;
+        }
+
+        /* Labels */
+        .label-new {
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .section-label {
+            position: relative;
+        }
+
+        /* Comparison header */
+        .compare {
+            text-align: center;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+
+        .compare small {
+            display: block;
+            font-size: 10px;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="compare">
+        🔧 PROPOSED: Compact Layout — More Space for Transcript
+        <small>Left column ~160px | Keywords as flowing pills ~180px | Transcript gets maximum width</small>
+    </div>
+
+    <div class="container">
+
+        <!-- LEFT COLUMN (compact) -->
+        <div class="left">
+
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">📁</div> Upload
+                </div>
+                <div class="upload-zone">
+                    <div class="icon">⬆</div>
+                    Upload or drag file<br>
+                    <span style="font-size:9px;color:#bbb">MP3, WAV, M4A</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">🔗</div> URL
+                </div>
+                <input class="url-input" placeholder="Paste audio URL..." />
+                <button class="btn-blue">🔗 Analyze</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">🎙</div> Live
+                </div>
+                <div class="ready-bar"></div>
+                <div class="status-line">Ready to record</div>
+                <div class="timer">00:00</div>
+                <button class="btn-blue">🎙 Start</button>
+            </div>
+
+        </div>
+
+        <!-- CENTER (transcript gets max space) -->
+        <div class="center">
+            <div class="center-header">
+                <h2>Conversation Transcript</h2>
+                <div class="center-actions">
+                    <input type="text" class="search-box" placeholder="Search..." />
+                    <button class="btn-sm">⬇ Download</button>
+                </div>
+            </div>
+            <div class="transcript-body">
+
+                <div class="turn">
+                    <div class="turn-meta">
+                        <div class="avatar avatar-1">👤</div>
+                        <div class="timestamp">07:20</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="speaker-name">Speaker 1</div>
+                        <div class="bubble">Yeah, going to give proba. So we do have the <mark>iPhone Air</mark>, the
+                            <mark>iPhone 11</mark>, and the <mark>Google Pixel 8 Pro</mark> available.</div>
+                    </div>
+                </div>
+
+                <div class="turn">
+                    <div class="turn-meta">
+                        <div class="avatar avatar-2">👤</div>
+                        <div class="timestamp">07:23</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="speaker-name">Speaker 2</div>
+                        <div class="bubble">All right. And what about the <mark>upgrade</mark> options? Is there a
+                            <mark>promotion</mark> going on right now?</div>
+                    </div>
+                </div>
+
+                <div class="turn">
+                    <div class="turn-meta">
+                        <div class="avatar avatar-1">👤</div>
+                        <div class="timestamp">07:24</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="speaker-name">Speaker 1</div>
+                        <div class="bubble">Yes, ma'am. We currently have a <mark>promotion</mark> for <mark>zero
+                                dollars monthly</mark> on the <mark>iPhone Air</mark> with <mark>ATT</mark> Unlimited
+                            plan. That includes the trade-in credit.</div>
+                    </div>
+                </div>
+
+                <div class="turn">
+                    <div class="turn-meta">
+                        <div class="avatar avatar-2">👤</div>
+                        <div class="timestamp">07:24</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="speaker-name">Speaker 2</div>
+                        <div class="bubble">Thank you. Let me think about that one. Can you also check the <mark>Google
+                                Pixel 10 Pro</mark>?</div>
+                    </div>
+                </div>
+
+                <div class="turn">
+                    <div class="turn-meta">
+                        <div class="avatar avatar-1">👤</div>
+                        <div class="timestamp">07:25</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="speaker-name">Speaker 1</div>
+                        <div class="bubble">All right, bye-bye. Have a great day!</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR (compact keyword pills) -->
+        <div class="right">
+            <div class="right-header">
+                <h3>🔍 Keywords (8)</h3>
+            </div>
+            <div class="keywords-body">
+                <button class="kw-pill">upgrade <span class="kw-count">1/8</span></button>
+                <button class="kw-pill">iPhone Air <span class="kw-count">1/14</span></button>
+                <button class="kw-pill">iPhone 11 <span class="kw-count">1/6</span></button>
+                <button class="kw-pill">Pixel 8 Pro <span class="kw-count">1</span></button>
+                <button class="kw-pill">Pixel 10 Pro <span class="kw-count">1</span></button>
+                <button class="kw-pill">$0 monthly <span class="kw-count">1/7</span></button>
+                <button class="kw-pill">promotion <span class="kw-count">1/4</span></button>
+                <button class="kw-pill">ATT <span class="kw-count">1/5</span></button>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

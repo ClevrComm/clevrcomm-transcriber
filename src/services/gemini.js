@@ -47,13 +47,13 @@ export class GeminiLiveService {
                         this.onMessage(data);
                     }
                 } catch (e) {
-                    console.error("Error parsing message", e);
+                    console.warn("Error parsing message", e);
                 }
             }
         };
 
         this.ws.onerror = (error) => {
-            console.error("Gemini WebSocket Error:", error);
+            console.warn("Gemini WebSocket Error:", error);
         };
 
         this.ws.onclose = () => {
@@ -114,26 +114,31 @@ export class GeminiLiveService {
     }
 }
 
-// ... (skipping lines)
-
-export async function analyzeAudioFile(base64Data, mimeType, apiKey, context = {}, onProgress = null) {
+// ============================================================
+// PASS 1: Pure Transcription (Audio → Streamed Plain Text)
+// Fast, cheap — user sees words appearing instantly.
+// ============================================================
+export async function transcribeAudio(base64Data, mimeType, apiKey, onProgress = null) {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
+    // Flash Lite is ~50% cheaper — transcription is a straightforward task
+    const model = genAI.getGenerativeModel({
+        model: "models/gemini-2.0-flash-lite",
+        generationConfig: { temperature: 0 }  // deterministic for accuracy
+    });
 
-    const { keywords = [], scorecard = null } = context;
+    const prompt = `Transcribe this audio accurately. Identify different speakers as "Speaker 1", "Speaker 2", etc. Provide timestamps (MM:SS) for each speaker turn.
 
-    let prompt = "Transcribe this audio. Identify speakers (Speaker 1, Speaker 2) and providing timestamps (MM:SS) for each turn. Also provide a summary, specific keywords found, and sentiment.";
+Format each turn on its own line like this:
+[00:00] Speaker 1: What they said here.
+[00:15] Speaker 2: Their response here.
 
-    if (keywords.length > 0) {
-        prompt += `\nCheck for these specific keywords: ${keywords.join(', ')}.`;
-    }
+Rules:
+- Output ONLY the transcript lines, nothing else.
+- Do NOT add any summary, analysis, or commentary.
+- Do NOT wrap in JSON or markdown code blocks.
+- Each speaker turn should be a separate line.`;
 
-    if (scorecard) {
-        prompt += `\nEvaluate the conversation based on this scorecard: "${scorecard.name}". Criteria:\n${scorecard.criteria.map(c => `- ${c}`).join('\n')}. Provide a score (Yes/No/Partial or 1-10) and reasoning for each.`;
-    }
-
-    prompt += "\nReturn the response as a JSON object with keys: 'transcript' (LIST of objects: { speaker: 'Speaker 1' | 'Speaker 2', time: 'MM:SS', text: string }), 'summary', 'keywords' (list of strings), 'sentiment', 'scorecard' (list of objects: { criteria, score, reasoning }). Do not use markdown code blocks.";
-
+    let fullText = '';
     try {
         const result = await model.generateContentStream([
             prompt,
@@ -145,26 +150,112 @@ export async function analyzeAudioFile(base64Data, mimeType, apiKey, context = {
             }
         ]);
 
-        let fullText = '';
         for await (const chunk of result.stream) {
             const chunkText = chunk.text();
             fullText += chunkText;
             if (onProgress) {
-                onProgress(fullText);
+                onProgress(chunkText, fullText);
             }
         }
 
-        const cleanText = fullText.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanText);
+        console.log("[Pass 1] Transcription complete. Length:", fullText.length);
+        return fullText.trim();
     } catch (e) {
-        console.error("Analysis failed", e);
-        // If JSON parse fails, return what we have as plain text transcript
-        // forcing a fallback structure so the UI doesn't crash
+        console.warn("[Pass 1] Transcription failed", e);
+        throw new Error("Transcription failed: " + e.message);
+    }
+}
+
+// ============================================================
+// PASS 2: Text Analysis (Transcript Text → Structured JSON)
+// ~100x faster than audio — processes text only.
+// ============================================================
+export async function analyzeTranscript(transcriptText, apiKey, context = {}) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // Flash for analysis — needs reasoning ability for summaries & scoring
+    const model = genAI.getGenerativeModel({
+        model: "models/gemini-2.0-flash",
+        generationConfig: {
+            responseMimeType: "application/json",  // constrained JSON output
+            temperature: 0.3  // mostly deterministic, slight creativity for summaries
+        }
+    });
+
+    const { keywords = [], scorecard = null } = context;
+
+    // NOTE: We skip re-structuring the transcript here — the client parses it
+    // from the Pass 1 output using parseTranscriptText(). This saves output tokens.
+    let prompt = `Analyze the following conversation transcript.
+
+TRANSCRIPT:
+"""
+${transcriptText}
+"""
+
+Return a JSON object with these keys:
+- "summary": A concise executive summary of the conversation (2-4 sentences).
+- "keywords": A list of important keywords/phrases found in the conversation.
+- "sentiment": Overall sentiment of the conversation (e.g. "Positive", "Negative", "Neutral", "Mixed").`;
+
+    if (keywords.length > 0) {
+        prompt += `\n- Also specifically check for and include these keywords if found: ${keywords.join(', ')}.`;
+    }
+
+    if (scorecard) {
+        prompt += `\n- "scorecard": Evaluate the conversation based on scorecard "${scorecard.name}". Criteria:\n${scorecard.criteria.map(c => `  - ${c}`).join('\n')}\n  For each criterion, provide: { "criteria": string, "score": "Yes"/"No"/"Partial" or 1-10, "reasoning": string }.`;
+    } else {
+        prompt += `\n- "scorecard": An empty array [].`;
+    }
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        // With responseMimeType: "application/json", output is already clean JSON
+        const parsed = JSON.parse(text);
+
+        // Merge in the structured transcript from client-side parsing
+        parsed.transcript = parseTranscriptText(transcriptText);
+
+        console.log("[Pass 2] Analysis complete. Keys:", Object.keys(parsed));
+        return parsed;
+    } catch (e) {
+        console.warn("[Pass 2] Analysis failed", e);
+        // Return a safe fallback so the UI doesn't crash
         return {
-            transcript: [{ speaker: 'System', time: '00:00', text: "Raw Output: " + (fullText || e.message) }],
-            summary: "Failed to parse structured analysis. See transcript for raw output.",
-            keywords: [],
-            sentiment: "Unknown"
+            transcript: parseTranscriptText(transcriptText),
+            summary: "Analysis failed. The transcript is available above.",
+            keywords: keywords.length > 0 ? keywords : [],
+            sentiment: "Unknown",
+            scorecard: []
         };
     }
+}
+
+// Helper: Parse plain-text transcript lines into structured array
+// Format: [MM:SS] Speaker N: text
+function parseTranscriptText(text) {
+    if (!text) return [];
+    const lines = text.split('\n').filter(l => l.trim());
+    const parsed = [];
+
+    for (const line of lines) {
+        const match = line.match(/^\[(\d{1,2}:\d{2})\]\s*(Speaker\s*\d+|[^:]+):\s*(.+)/i);
+        if (match) {
+            parsed.push({
+                time: match[1],
+                speaker: match[2].trim(),
+                text: match[3].trim()
+            });
+        } else if (line.trim()) {
+            // Fallback for lines that don't match the expected format
+            parsed.push({
+                time: '',
+                speaker: 'Speaker',
+                text: line.trim()
+            });
+        }
+    }
+    return parsed;
 }

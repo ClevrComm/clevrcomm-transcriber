@@ -42,7 +42,7 @@ const renderScorecard = (scorecardData) => {
 };
 
 
-export default function AnalysisPanel({ data, audioUrl }) {
+export default function AnalysisPanel({ data, audioUrl, settingsKeywords = [] }) {
     const [activeTab, setActiveTab] = useState('transcript');
     const [seekTime, setSeekTime] = useState(null);
 
@@ -143,7 +143,7 @@ export default function AnalysisPanel({ data, audioUrl }) {
                             text={typeof data.transcript === 'string' ? [{ speaker: 'System', text: data.transcript, time: '' }] : data.transcript}
                             onTimestampClick={handleTimestampClick}
                             audioUrl={audioUrl}
-                            keywords={data.keywords || []}
+                            keywords={settingsKeywords}
                             transcript={typeof data.transcript === 'string' ? data.transcript : data.transcript.map(t => `${t.time} [${t.speaker}]: ${t.text}`).join('\n')}
                         />
                     </div>
