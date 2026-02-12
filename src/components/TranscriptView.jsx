@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Download, User, Clock, Play, MessageCircle, X, Loader } from 'lucide-react';
+import { Search, Download, User, Clock, Play, MessageCircle, X, Loader, ChevronUp, ChevronDown } from 'lucide-react';
 import TranscriptChat from './TranscriptChat';
 
 export default function TranscriptView({
@@ -17,6 +17,11 @@ export default function TranscriptView({
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [keywordOccurrences, setKeywordOccurrences] = useState({});
     const [currentOccurrenceIndex, setCurrentOccurrenceIndex] = useState({});
+
+    // Search Highlight & Jump State
+    const [searchMatches, setSearchMatches] = useState([]); // Array of { index: number, subIndex: number }
+    const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
     const transcriptRefs = useRef({});
     const streamEndRef = useRef(null);
 
@@ -67,6 +72,59 @@ export default function TranscriptView({
         setCurrentOccurrenceIndex(initialIndices);
     }, [displayText, keywords, isStructured]);
 
+    // Calculate Search Matches
+    useEffect(() => {
+        if (!searchTerm || !displayText) {
+            setSearchMatches([]);
+            setCurrentMatchIndex(0);
+            return;
+        }
+
+        const matches = [];
+        const lowerSearch = searchTerm.toLowerCase();
+
+        if (isStructured) {
+            displayText.forEach((entry, index) => {
+                if (entry.text && entry.text.toLowerCase().includes(lowerSearch)) {
+                    matches.push({ index, type: 'text' });
+                } else if (entry.speaker && entry.speaker.toLowerCase().includes(lowerSearch)) {
+                    matches.push({ index, type: 'speaker' });
+                }
+            });
+        } else {
+            // Plain text search logic could go here if needed, 
+            // but usually we just highlight in the block.
+            // For now, simple text matching.
+        }
+
+        setSearchMatches(matches);
+        setCurrentMatchIndex(0); // Reset to first match
+    }, [displayText, searchTerm, isStructured]);
+
+    // Scroll to current search match
+    useEffect(() => {
+        if (searchMatches.length > 0 && transcriptRefs.current[searchMatches[currentMatchIndex]?.index]) {
+            const element = transcriptRefs.current[searchMatches[currentMatchIndex].index];
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Add temporary highlight effect
+            element.classList.add('ring-2', 'ring-orange-400', 'bg-orange-50', 'dark:bg-orange-900/20');
+            const timer = setTimeout(() => {
+                element.classList.remove('ring-2', 'ring-orange-400', 'bg-orange-50', 'dark:bg-orange-900/20');
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [currentMatchIndex, searchMatches]);
+
+    const nextMatch = () => {
+        if (searchMatches.length === 0) return;
+        setCurrentMatchIndex((prev) => (prev + 1) % searchMatches.length);
+    };
+
+    const prevMatch = () => {
+        if (searchMatches.length === 0) return;
+        setCurrentMatchIndex((prev) => (prev - 1 + searchMatches.length) % searchMatches.length);
+    };
+
     const handleKeywordClick = (keyword) => {
         const occurrences = keywordOccurrences[keyword];
         if (!occurrences || occurrences.length === 0) return;
@@ -96,32 +154,39 @@ export default function TranscriptView({
         return () => { delete window.__transcriptKeywordClick; };
     });
 
-    const filteredTranscript = useMemo(() => {
-        if (!displayText) return [];
-        if (!isStructured) return [{ text: displayText, speaker: 'Speaker', time: '' }];
-
-        return displayText.filter(entry =>
-            (entry.text && entry.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (entry.speaker && entry.speaker.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-    }, [displayText, searchTerm, isStructured]);
-
+    // Highlight text logic (Keywords + Search Terms)
     const highlightText = (content) => {
         if (!content) return null;
-        if (isStreaming || !keywords || keywords.length === 0) return content;
+        if (isStreaming) return content;
 
-        const regex = new RegExp(`(${keywords.join('|')})`, 'gi');
-        const parts = content.split(regex);
+        // 1. Highlight Keywords
+        let parts = [content];
+        if (keywords && keywords.length > 0) {
+            const regex = new RegExp(`(${keywords.join('|')})`, 'gi');
+            parts = content.split(regex).map((part, i) => {
+                if (keywords.some(k => k.toLowerCase() === part.toLowerCase())) {
+                    return <span key={`kw-${i}`} className="bg-yellow-200 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 font-medium px-0.5 rounded">{part}</span>;
+                }
+                return part;
+            });
+        }
 
-        return parts.map((part, i) =>
-            keywords.some(k => k.toLowerCase() === part.toLowerCase()) ? (
-                <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 font-medium px-0.5 rounded">
-                    {part}
-                </span>
-            ) : (
-                part
-            )
-        );
+        // 2. Highlight Search Term (in Orange) within the parts
+        if (searchTerm) {
+            parts = parts.flatMap((part, i) => {
+                if (React.isValidElement(part)) return part; // Already highlighted keyword
+
+                const regex = new RegExp(`(${searchTerm})`, 'gi');
+                return part.split(regex).map((subPart, j) => {
+                    if (subPart.toLowerCase() === searchTerm.toLowerCase()) {
+                        return <span key={`search-${i}-${j}`} className="bg-orange-300 dark:bg-orange-700 text-orange-900 dark:text-orange-100 font-bold px-0.5 rounded">{subPart}</span>;
+                    }
+                    return subPart;
+                });
+            });
+        }
+
+        return parts;
     };
 
     const handleDownload = () => {
@@ -159,15 +224,46 @@ export default function TranscriptView({
 
                 <div className="flex items-center gap-2 flex-1 justify-end">
                     {!isStreaming && (
-                        <div className="relative max-w-[160px] w-full mr-2">
-                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                            />
+                        <div className="flex items-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-sm">
+                            <div className="relative w-32 sm:w-48">
+                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-8 pr-2 py-1 text-xs bg-transparent border-none rounded-l-md focus:ring-0 outline-none"
+                                />
+                            </div>
+
+                            {/* Search Navigation Controls */}
+                            {searchTerm && (
+                                <div className="flex items-center border-l border-gray-200 dark:border-gray-600 px-1">
+                                    <span className="text-[10px] text-gray-400 px-2 min-w-[50px] text-center">
+                                        {searchMatches.length > 0 ? `${currentMatchIndex + 1} / ${searchMatches.length}` : '0 / 0'}
+                                    </span>
+                                    <button
+                                        onClick={prevMatch}
+                                        disabled={searchMatches.length === 0}
+                                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded disabled:opacity-30 transition-colors"
+                                    >
+                                        <ChevronUp className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                                    </button>
+                                    <button
+                                        onClick={nextMatch}
+                                        disabled={searchMatches.length === 0}
+                                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded disabled:opacity-30 transition-colors"
+                                    >
+                                        <ChevronDown className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                                    </button>
+                                    <button
+                                        onClick={() => setSearchTerm('')}
+                                        className="p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded ml-1 transition-colors group"
+                                    >
+                                        <X className="w-3 h-3 text-gray-400 group-hover:text-red-500" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -211,7 +307,6 @@ export default function TranscriptView({
 
             {/* Main Content Area */}
             <div className="flex flex-1 overflow-hidden">
-
                 {/* Transcript - Full Width */}
                 <div className="flex-1 overflow-y-auto p-4 scroll-smooth">
                     {!displayText ? (
@@ -229,8 +324,8 @@ export default function TranscriptView({
                         /* ── STRUCTURED / PLAIN MODE ── */
                         <div className="space-y-3">
                             {isStructured ? (
-                                filteredTranscript.length > 0 ? (
-                                    filteredTranscript.map((entry, index) => (
+                                displayText.length > 0 ? (
+                                    displayText.map((entry, index) => (
                                         <div
                                             key={index}
                                             ref={el => transcriptRefs.current[index] = el}
@@ -243,14 +338,14 @@ export default function TranscriptView({
                                                 {entry.time && audioUrl ? (
                                                     <button
                                                         onClick={() => onTimestampClick?.(entry.time)}
-                                                        className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-0.5 cursor-pointer hover:underline transition-colors group/time"
+                                                        className="mt-1 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                                                         title="Click to play from this point"
                                                     >
-                                                        <Play className="w-2 h-2 opacity-0 group-hover/time:opacity-100 transition-opacity" fill="currentColor" />
+                                                        <Play className="w-2.5 h-2.5" fill="currentColor" />
                                                         {entry.time}
                                                     </button>
                                                 ) : (
-                                                    <div className="text-[9px] font-mono text-gray-400 flex items-center gap-0.5">
+                                                    <div className="text-[10px] font-mono text-gray-400 mt-1">
                                                         {entry.time}
                                                     </div>
                                                 )}
@@ -277,7 +372,6 @@ export default function TranscriptView({
                         </div>
                     )}
                 </div>
-
             </div>
 
             {/* Floating Chat Button */}
@@ -300,3 +394,4 @@ export default function TranscriptView({
         </div>
     );
 }
+
