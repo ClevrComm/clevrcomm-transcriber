@@ -1,0 +1,24 @@
+
+> clevrcomm-transcriber@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+src/components/TranscriptView.jsx (7:25): "VariableSizeList" is not exported by "node_modules/react-window/dist/react-window.js", imported by "src/components/TranscriptView.jsx".
+src/components/TranscriptView.jsx (7:57): "default" is not exported by "node_modules/react-window/dist/react-window.js", imported by "src/components/TranscriptView.jsx".
+src/components/TranscriptView.jsx (8:31): "default" is not exported by "node_modules/react-virtualized-auto-sizer/dist/react-virtualized-auto-sizer.js", imported by "src/components/TranscriptView.jsx".
+[32mΓ£ô[39m 2377 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                          [39m[1m[2m  0.47 kB[22m[1m[22m[2m Γöé gzip:   0.30 kB[22m
+[2mdist/[22m[35massets/index-bJiocluR.css           [39m[1m[2m 35.00 kB[22m[1m[22m[2m Γöé gzip:   6.45 kB[22m
+[2mdist/[22m[36massets/trash-2-CcaLldXx.js          [39m[1m[2m  0.33 kB[22m[1m[22m[2m Γöé gzip:   0.22 kB[22m
+[2mdist/[22m[36massets/file-text-CUHM3SeG.js        [39m[1m[2m  0.39 kB[22m[1m[22m[2m Γöé gzip:   0.25 kB[22m
+[2mdist/[22m[36massets/HistoryModal-BPpWquTk.js     [39m[1m[2m  4.30 kB[22m[1m[22m[2m Γöé gzip:   1.73 kB[22m
+[2mdist/[22m[36massets/purify.es-Bzr520pe.js        [39m[1m[2m 22.45 kB[22m[1m[22m[2m Γöé gzip:   8.63 kB[22m
+[2mdist/[22m[36massets/SettingsModal-zspG9A0c.js    [39m[1m[2m129.33 kB[22m[1m[22m[2m Γöé gzip:  42.28 kB[22m
+[2mdist/[22m[36massets/index.es-BwrUJx5B.js         [39m[1m[2m158.65 kB[22m[1m[22m[2m Γöé gzip:  52.97 kB[22m
+[2mdist/[22m[36massets/html2canvas.esm-DXEQVQnt.js  [39m[1m[2m201.04 kB[22m[1m[22m[2m Γöé gzip:  47.43 kB[22m
+[2mdist/[22m[36massets/index-CQJ3E6el.js            [39m[1m[2m306.45 kB[22m[1m[22m[2m Γöé gzip:  95.41 kB[22m
+[2mdist/[22m[36massets/AnalysisPanel-CzzU_lLU.js    [39m[1m[2m398.93 kB[22m[1m[22m[2m Γöé gzip: 130.36 kB[22m
+[32mΓ£ô built in 9.70s[39m

@@ -41,3 +41,15 @@ I have already **initialized Git** and **committed your code** for you. You just
 ## Notes
 
 - **Proxy**: I added a special file `api/proxy.js` which Vercel defaults to using. This ensures the "Analyze URL" feature works online by handling the cross-origin requests securely.
+
+## Troubleshooting
+
+### Incorrect Project Name / URL
+
+If Vercel deployed your app to a URL like `clevrcomm-transcriber-c8qt.vercel.app` instead of `clevrcomm-transcriber.vercel.app`:
+
+1. Go to your project in the **Vercel Dashboard**.
+2. Click **Settings** -> **Domains**.
+3. Click **Edit** next to the current domain.
+4. Change it to `clevrcomm-transcriber.vercel.app`.
+5. If it says "Taken", you may need to use a slightly different name or connect a custom domain.

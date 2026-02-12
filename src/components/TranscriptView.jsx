@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Download, User, Clock, Play, MessageCircle, X, Loader } from 'lucide-react';
 import TranscriptChat from './TranscriptChat';
 
@@ -32,8 +32,6 @@ export default function TranscriptView({
             streamEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [displayText, isStreaming]);
-
-
 
     // Build keyword occurrence map for highlighting only (internal usage)
     useEffect(() => {
@@ -69,8 +67,6 @@ export default function TranscriptView({
         setCurrentOccurrenceIndex(initialIndices);
     }, [displayText, keywords, isStructured]);
 
-
-
     const handleKeywordClick = (keyword) => {
         const occurrences = keywordOccurrences[keyword];
         if (!occurrences || occurrences.length === 0) return;
@@ -94,7 +90,6 @@ export default function TranscriptView({
     };
 
     // Allow parent to trigger keyword click (for external sidebar)
-    // Expose via a callback pattern
     useEffect(() => {
         if (window.__transcriptKeywordClick) return;
         window.__transcriptKeywordClick = handleKeywordClick;
@@ -217,7 +212,7 @@ export default function TranscriptView({
             {/* Main Content Area */}
             <div className="flex flex-1 overflow-hidden">
 
-                {/* Transcript - Full Width (keywords now external) */}
+                {/* Transcript - Full Width */}
                 <div className="flex-1 overflow-y-auto p-4 scroll-smooth">
                     {!displayText ? (
                         <div className="text-gray-400 italic text-center mt-10 text-sm">Waiting for input...</div>
@@ -231,8 +226,8 @@ export default function TranscriptView({
                             <div ref={streamEndRef} />
                         </div>
                     ) : (
-                        /* ── STRUCTURED MODE: Parsed transcript entries ── */
-                        <div className="space-y-4 pb-20">
+                        /* ── STRUCTURED / PLAIN MODE ── */
+                        <div className="space-y-3">
                             {isStructured ? (
                                 filteredTranscript.length > 0 ? (
                                     filteredTranscript.map((entry, index) => (
@@ -283,7 +278,6 @@ export default function TranscriptView({
                     )}
                 </div>
 
-
             </div>
 
             {/* Floating Chat Button */}
@@ -306,4 +300,3 @@ export default function TranscriptView({
         </div>
     );
 }
-

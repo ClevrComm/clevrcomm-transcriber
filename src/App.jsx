@@ -1,17 +1,22 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import AudioRecorder from './components/AudioRecorder';
 import FileUpload from './components/FileUpload';
-import AnalysisPanel from './components/AnalysisPanel';
 import TranscriptView from './components/TranscriptView';
 import KeywordsSidebar from './components/KeywordsSidebar';
-import SettingsModal from './components/SettingsModal';
-import HistoryModal from './components/HistoryModal';
 import ThemeToggle from './components/ThemeToggle';
 import PasswordGate from './components/PasswordGate';
+import ToastProvider from './components/ToastProvider';
+import ErrorBoundary from './components/ErrorBoundary';
 import { saveSession } from './services/storage';
 import { PERSONAS } from './utils/personas';
 import { Mic, FileAudio, ExternalLink, Activity, Settings, History, UserCircle, Loader } from 'lucide-react';
 import ClevrCommLogo from './components/ClevrCommLogo';
+import './App.css'; // Import forced dark mode styles
+
+// Lazy load heavy components
+const AnalysisPanel = lazy(() => import('./components/AnalysisPanel'));
+const SettingsModal = lazy(() => import('./components/SettingsModal'));
+const HistoryModal = lazy(() => import('./components/HistoryModal'));
 
 function App() {
   const [transcript, setTranscript] = useState("");
@@ -172,20 +177,25 @@ function App() {
   return (
     <PasswordGate>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          keywords={keywords}
-          setKeywords={setKeywords}
-          scorecards={scorecards}
-          setScorecards={setScorecards}
-        />
+        <ToastProvider />
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            keywords={keywords}
+            setKeywords={setKeywords}
+            scorecards={scorecards}
+            setScorecards={setScorecards}
+          />
+        </Suspense>
 
-        <HistoryModal
-          isOpen={isHistoryOpen}
-          onClose={() => setIsHistoryOpen(false)}
-          onLoadSession={loadSession}
-        />
+        <Suspense fallback={null}>
+          <HistoryModal
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+            onLoadSession={loadSession}
+          />
+        </Suspense>
 
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
@@ -278,7 +288,9 @@ function App() {
             {/* CENTER COLUMN: Transcript / Analysis (maximum width) */}
             <div className="lg:order-2">
               {analysisData && processingStage === 'done' ? (
-                <AnalysisPanel data={analysisData} audioUrl={audioUrl} settingsKeywords={keywords} />
+                <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader className="w-8 h-8 animate-spin text-indigo-500" /></div>}>
+                  <AnalysisPanel data={analysisData} audioUrl={audioUrl} settingsKeywords={keywords} />
+                </Suspense>
               ) : (
                 <TranscriptView
                   text={transcript}

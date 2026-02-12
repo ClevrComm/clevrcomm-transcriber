@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, FileAudio, Loader, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { transcribeAudio, analyzeTranscript } from '../services/gemini';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
@@ -9,6 +10,7 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
     const [fileName, setFileName] = useState("");
     const [url, setUrl] = useState("");
     const [stage, setStage] = useState(""); // 'transcribing' | 'analyzing' | ''
+    const [isDragging, setIsDragging] = useState(false);
 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
@@ -16,9 +18,32 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
         processFile(file);
     };
 
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('audio/')) {
+            processFile(file);
+        } else {
+            toast.error("Please drop a valid audio file.");
+        }
+    };
+
     const handleUrlSubmit = async () => {
         if (!url) return;
         setIsUploading(true);
+        const toastId = toast.loading("Fetching audio from URL...");
+
         try {
             let fetchUrl = url;
 
@@ -36,11 +61,13 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
             if (!response.ok) throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
             const blob = await response.blob();
             const file = new File([blob], "audio-url.mp3", { type: blob.type || "audio/mp3" });
+            toast.dismiss(toastId);
             setFileName(url);
             await processFile(file);
         } catch (e) {
             console.error("URL fetch failed", e);
-            alert("Failed to fetch audio from URL. It might be blocked by CORS or invalid.");
+            toast.dismiss(toastId);
+            toast.error("Failed to fetch audio from URL. It might be blocked by CORS or invalid.");
             setIsUploading(false);
             setStage("");
         }
@@ -48,13 +75,14 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
 
     const processFile = async (file) => {
         if (!API_KEY) {
-            alert("Please set VITE_GEMINI_API_KEY in .env");
+            toast.error("Please set VITE_GEMINI_API_KEY in .env");
             setIsUploading(false);
             return;
         }
 
         setFileName(file.name || "Audio File");
         setIsUploading(true);
+        const toastId = toast.loading("Processing audio...");
 
         const audioUrl = URL.createObjectURL(file);
 
@@ -64,6 +92,7 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
             // ── PASS 1: Transcription (streamed plain text) ──
             setStage("transcribing");
             console.log("[FileUpload] Starting Pass 1: Transcription...");
+            toast.message("Transcription started...", { id: toastId });
 
             const fullTranscript = await transcribeAudio(
                 base64Data,
@@ -81,15 +110,18 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
             // ── PASS 2: Analysis (text → structured JSON) ──
             setStage("analyzing");
             if (onStageChange) onStageChange('analyzing');
+            toast.message("Analyzing content...", { id: toastId });
 
             const result = await analyzeTranscript(fullTranscript, API_KEY, context);
 
             console.log("[FileUpload] Pass 2 complete. Delivering results.");
+            toast.success("Analysis complete!", { id: toastId });
 
             onAnalysisComplete({ ...result, audioUrl });
         } catch (error) {
             console.warn("Processing failed", error);
-            alert(`Processing failed: ${error.message || JSON.stringify(error)}`);
+            toast.dismiss(toastId);
+            toast.error(`Processing failed: ${error.message || "Unknown error"}`);
         } finally {
             setIsUploading(false);
             setStage("");
@@ -107,17 +139,24 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
                     <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Upload</span>
                 </div>
 
-                <div className="relative group">
+                <div
+                    className="relative group"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
                     <input
                         type="file"
                         accept="audio/*"
                         onChange={handleFileChange}
                         disabled={isUploading}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
                     />
                     <div className={`
                         border-[1.5px] border-dashed rounded-lg p-3 text-center transition-all
-                        ${isUploading ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700'}
+                        ${isUploading ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' :
+                            isDragging ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10 ring-2 ring-indigo-200 dark:ring-indigo-900' :
+                                'border-gray-300 dark:border-gray-600 hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700'}
                     `}>
                         {isUploading ? (
                             <div className="flex flex-col items-center gap-1 text-indigo-600">
@@ -128,8 +167,8 @@ export default function FileUpload({ onAnalysisComplete, onTranscriptProgress, o
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-0.5 text-gray-400 dark:text-gray-500">
-                                <Upload className="w-4 h-4" />
-                                <span className="text-[10px]">Upload or drag file</span>
+                                <Upload className={`w-4 h-4 ${isDragging ? 'text-indigo-500 scale-110' : ''} transition-transform`} />
+                                <span className="text-[10px]">{isDragging ? 'Drop file here' : 'Upload or drag file'}</span>
                                 <span className="text-[9px] text-gray-300 dark:text-gray-600">MP3, WAV, M4A</span>
                             </div>
                         )}
